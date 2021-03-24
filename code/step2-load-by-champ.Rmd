@@ -1,0 +1,102 @@
+---
+title: "step2-load-by-champ"
+author: "ylchen"
+date: "2021年3月22日"
+output:
+  rmdformats::downcute:
+    self_contained: true
+---
+
+## 0. 加载R包
+
+```{r, eval=FALSE}
+rm(list = ls())   
+options(stringsAsFactors = F)
+library("ChAMP")
+library("minfi")
+require(GEOquery)
+require(Biobase)
+```
+
+## 1. Methylation450
+
+```{r,collapse=TRUE}
+#下载甲基化数据 
+rd='../data/TCGA-LUSC.methylation450.Rdata'
+if( ! file.exists(rd)){
+  dir='../TCGA-LUSC-LUAD/'
+  f='TCGA-LUSC.methylation450.tsv.gz'
+  # 这个文件超级大，读取会耗时
+  library(data.table)
+  a=fread(file.path(dir,f),data.table = F)
+  head(a)
+  dim(a)  
+  rownames(a)=a[,1]
+  a=a[,-1]
+  a[1:4,1:4]
+  save(a,file=rd)
+}
+load(rd)
+a[1:4,1:4]
+```
+
+## 2.pd(pair)+Methylation
+
+* 注意：pd有两个条件：一期和配对；每次变动pd和methylation合并，都要重新筛选配对
+
+```{r,collapse=TRUE}
+#加载临床数据
+load('../data/pd_A.rdata')
+head(pd_A)
+dim(pd_A)
+
+#两者取交集
+dat_match=a[,colnames(a) %in% rownames(pd_A)]
+dim(dat_match)
+
+pd_match=pd_A[match(colnames(dat_match),rownames(pd_A)),]
+dim(pd_match)
+
+#match可使两者顺序相同
+identical(rownames(pd_match),colnames(dat_match))
+```
+
+* 上面又筛选了样本，重新确定配对数据
+
+```{r,collapse=TRUE}
+#重新确定配对,将非重复取出来
+p=unique(pd_match$patient)
+tp=paste0(p,'-01A')
+np=paste0(p,'-11A')
+okp=p[tp %in% pd_match$id & np %in% pd_match$id]
+
+pd_match=pd_match[pd_match$patient %in% okp,]
+dat_match=dat_match[,pd_match$id]
+
+identical(rownames(pd_match),colnames(dat_match))
+dim(pd_match)
+dim(dat_match)
+```
+
+
+## 3. CHAMP包处理甲基化
+
+* 电脑配置高，可以不用第二步，直接对所有样本基因进行处理，再与临床数据取交集
+
+
+```{r,eval=FALSE}
+b=dat_match
+beta=as.matrix(b)
+#矩阵有NA值，函数对其进行差补，耗时很长
+beta=impute.knn(beta)
+betaData=beta$data
+#不能加很大，甲基化信号值就是0-1
+betaData=betaData+0.00001
+#现在矩阵就没有NA
+betaData[1:4,1:4]
+
+# beta 信号值矩阵里面不能有NA值
+myLoad=champ.filter(beta = betaData,pd = pd_match)
+save(myLoad,file = '../data/step1-output.Rdata')
+```
+

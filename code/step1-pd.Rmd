@@ -1,0 +1,85 @@
+---
+title: "step1-Methylation_pd"
+author: "ylchen"
+date: "2021.03.22"
+output:
+  rmdformats::downcute:
+    self_contained: true
+---
+
+## 0. 加载R包
+
+```{r,eval=FALSE}
+rm(list = ls())   
+options(stringsAsFactors = F) 
+require(GEOquery)
+require(Biobase)
+```
+
+
+## 1. 临床数据处理
+
+* UCSC的xena浏览器下载指定HNSC的phenotype数据
+
+```{r,collapse=TRUE}
+dir='../TCGA-LUSC-LUAD/'
+b='TCGA-LUSC.GDC_phenotype.tsv.gz'
+pd.all <- read.delim( file.path(dir,b), 
+                      header = T, stringsAsFactors = F)
+
+dim(pd.all) 
+save(pd.all,file = '../data/pd.all.rdata')
+#colnames(pd.all)
+pd <- pd.all[,c("submitter_id.samples","tumor_stage.diagnoses",
+                "sample_type.samples")]
+colnames(pd)=c("id","stage","type")
+pd$patient <- substr(pd$id,1,12)
+rownames(pd)=pd$id
+table(pd$type)
+pd$type <- ifelse(pd$type=="Primary Tumor","Tumor","Normal")
+head(pd)
+
+```
+
+## 2. 分期I
+```{r,collapse=TRUE}
+table(pd$stage)
+kp= pd$stage %in% c('stage i'  ,  'stage ia'  ,  'stage ib')
+pd.choose=pd[ kp ,]
+table(pd.choose$stage)
+
+```
+
+## 3. 配对样本
+
+```{r,collapse=TRUE}
+table(pd.choose$type)
+#提取配对样本
+pd_pair <- pd.choose[pd.choose$patient %in% pd.choose$patient[pd.choose$type=="Normal"],]
+
+dim(pd_pair) 
+table(pd_pair$type)
+head(pd_pair)
+```
+
+## 4. 删除B,C样本
+
+```{r,collapse=TRUE}
+pd_pair$t <- substr(pd_pair$id,16,16)
+table(pd_pair$t)
+#只把A保留下来
+pd_A=pd_pair[grep('A',pd_pair$t),]
+table(pd_A$type)
+#删除不是配对的样本
+head(pd_A)
+table(pd_A$patient)[table(pd_A$patient)==1]
+pd_A=pd_A[pd_A$patient !='TCGA-43-3920',]
+dim(pd_A)
+head(pd_A)
+save(pd_A,file = '../data/pd_A.rdata')
+
+```
+
+
+
+

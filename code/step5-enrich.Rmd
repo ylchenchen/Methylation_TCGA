@@ -1,0 +1,50 @@
+---
+title: "step5-enrich"
+author: "ylchen"
+date: "2021年3月24日"
+output:
+  rmdformats::downcute:
+    self_contained: true
+---
+
+## 0. 加载R包
+```{r}
+library(ggplot2)
+```
+
+## 1. DEG_volcano
+
+```{r,collapse=TRUE}
+load(file = '../data/output_myDMP.Rdata')
+dim(myDMP[[1]]) # 有统计学显著差异的甲基化探针比较多
+head(myDMP[[1]])
+
+#矩阵
+df_DMP <- myDMP$Normal_to_Tumor[,1:5]
+#阈值
+logFC_cutoff <- 0.5
+P.Val <- 0.05
+df_DMP$change <- ifelse(df_DMP$adj.P.Val < P.Val & abs(df_DMP$logFC) >
+                          logFC_cutoff,ifelse(df_DMP$logFC >
+                                                logFC_cutoff,'UP','DOWN'),'NOT')
+table(df_DMP$change) 
+
+this_tile <- paste0('Cutoff for logFC is ',round(logFC_cutoff,3),
+                    '\nThe number of up gene is ',nrow(df_DMP[df_DMP$change
+                                                              =='UP',]),
+                    '\nThe number of down gene is ',nrow(df_DMP[df_DMP$change
+                                                                =='DOWN',]))
+                                                             
+g <- ggplot(data=df_DMP, 
+            aes(x=logFC, y=-log10(adj.P.Val), 
+                color=change)) +
+  geom_point(alpha=0.4, size=1) +
+  theme_set(theme_set(theme_bw(base_size=10)))+
+  xlab("log2 fold change") + ylab("-log10 p-value") +
+  ggtitle( this_tile ) + theme(plot.title = element_text(size=10,hjust = 0.5))+
+  scale_colour_manual(values = c('blue','black','red'))
+print(g)
+#ggsave(filename = '../pic/volcano.png')
+
+```
+

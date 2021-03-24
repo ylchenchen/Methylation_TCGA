@@ -1,0 +1,62 @@
+---
+title: "step4-DEM-champ"
+author: "ylchen"
+date: "2021年3月22日"
+output:
+  rmdformats::downcute:
+    self_contained: true
+---
+
+## 0. 加载R包
+
+```{r,eval=FALSE}
+rm(list = ls())   
+options(stringsAsFactors = F)
+library("ChAMP")
+library("minfi")
+require(GEOquery)
+require(Biobase)
+```
+```{r,include=FALSE}
+rm(list = ls())   
+options(stringsAsFactors = F)
+library("ChAMP")
+library("minfi")
+require(GEOquery)
+require(Biobase)
+```
+## 1. 标准化
+ * champ.norm()
+
+```{r,collapse=TRUE}
+load(file = '../data/step1-output.Rdata')
+# 存储了甲基化信号矩阵和表型信息。
+dim(myLoad$beta)
+ 
+# champ.QC()  
+myNorm <- champ.norm(beta=myLoad$beta,
+                     method='PBC',
+                     arraytype="450k",cores=5)
+
+dim(myNorm) 
+pD=myLoad$pd
+save(myNorm,pD,file = '../data/champ_myNorm.Rdata')
+```
+
+## 2. 差异分析
+ * 差异分析就一个步骤 champ.DMP
+
+```{r,collapse=TRUE}
+group_list=myLoad$pd$type
+table(group_list)
+#差异分析就一个步骤 champ.DMP
+# myNorm=myLoad$beta 
+myDMP <- champ.DMP(beta = myNorm,pheno=group_list)
+dim(myDMP[[1]]) # [1]    有统计学显著差异的甲基化探针比较多
+head(myDMP[[1]])
+save(myDMP,file = '../data/output_myDMP.Rdata')
+#矩阵不用看logFC，意义不大。一般看adj.P.Val， deltaBeta
+# 还可以调动交互式界面修改阈值，调整差异化探针
+#DMP.GUI(DMP=myDMP[[1]],beta=myNorm,group_list)
+```
+
